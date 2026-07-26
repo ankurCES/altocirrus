@@ -23,6 +23,9 @@ type Store interface {
 
 	// Clear removes all keys in the given namespace.
 	Clear(namespace string)
+
+	// Namespaces returns all namespace names that contain at least one key.
+	Namespaces() []string
 }
 
 // MemoryStore is a thread-safe, in-memory implementation of Store.
@@ -109,4 +112,17 @@ func (m *MemoryStore) Clear(namespace string) {
 	defer m.mu.Unlock()
 
 	delete(m.data, namespace)
+}
+
+func (m *MemoryStore) Namespaces() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	ns := make([]string, 0, len(m.data))
+	for k, v := range m.data {
+		if len(v) > 0 {
+			ns = append(ns, k)
+		}
+	}
+	return ns
 }

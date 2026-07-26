@@ -43,8 +43,8 @@ curl http://localhost:4567/_altocirrus/health
   "status": "ok",
   "version": "0.1.0",
   "services": {
-    "azure": ["auth", "keyvault", "arm"],
-    "gcp": ["auth", "secretmanager", "storage"]
+    "azure": ["auth", "keyvault", "arm", "blobstorage", "cosmosdb"],
+    "gcp": ["auth", "secretmanager", "storage", "pubsub", "firestore"]
   }
 }
 ```
@@ -56,9 +56,13 @@ curl http://localhost:4567/_altocirrus/health
 | Azure | **Entra ID (Auth)** | OAuth2 token issuance, OIDC discovery, JWKS | `POST /{tenantId}/oauth2/v2.0/token` |
 | Azure | **Key Vault Secrets** | Create, read, list, delete (soft-delete) | `PUT/GET/DELETE /secrets/{name}` |
 | Azure | **ARM Resource Groups** | Create, read, list, delete | `/subscriptions/{sub}/resourceGroups/{rg}` |
+| Azure | **Blob Storage** | Container CRUD, blob upload/download/delete/HEAD (XML REST API) | `/{account}/{container}/{blob}` |
+| Azure | **Cosmos DB** | Database/container/document CRUD, SQL queries, partition keys | `/dbs/{db}/colls/{coll}/docs/{doc}` |
 | GCP | **OAuth (Auth)** | Token issuance, metadata server | `POST /token`, `POST /oauth2/v4/token` |
 | GCP | **Secret Manager** | Create secret, add version, access, list, delete | `/v1/projects/{project}/secrets/...` |
 | GCP | **Cloud Storage** | Bucket CRUD, object upload (simple + resumable), download, list, delete | `/storage/v1/b/{bucket}/o/{object}` |
+| GCP | **Pub/Sub** | Topics, subscriptions, publish/pull/acknowledge | `/v1/projects/{project}/topics/...` |
+| GCP | **Firestore** | Document CRUD, structured queries, batch get | `/v1/projects/{project}/databases/{db}/documents/...` |
 
 All auth endpoints return valid-looking tokens. Azure tokens are real RS256-signed JWTs with correct claims (`aud`, `iss`, `tid`, `oid`, `scp`, `exp`), so SDKs that introspect tokens will work.
 
@@ -86,6 +90,8 @@ export ARM_ENDPOINT=http://localhost:4567
 # --- GCP CLI ---
 export STORAGE_EMULATOR_HOST=localhost:4567
 export SECRET_MANAGER_EMULATOR_HOST=localhost:4567
+export PUBSUB_EMULATOR_HOST=localhost:4567
+export FIRESTORE_EMULATOR_HOST=localhost:4567
 export CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER=http://localhost:4567/
 ```
 
@@ -178,11 +184,110 @@ response = client.access_secret_version(
 print(response.payload.data.decode("utf-8"))
 ```
 
+### Azure Cosmos DB -- Go
+
+```go
+import (
+    "github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos"
+)
+
+// Point SDK at local emulator
+endpoint := "http://localhost:4567"
+cred, _ := azcosmos.NewKeyCredential("C2y6yDjf5/efT8oB...")  // emulator accepts any key
+client, _ := azcosmos.NewClientWithKey(endpoint, cred, nil)
+
+// Create database + container
+client.CreateDatabase(ctx, azcosmos.DatabaseProperties{ID: "mydb"}, nil)
+db, _ := client.NewDatabase("mydb")
+db.CreateContainer(ctx, azcosmos.ContainerProperties{
+    ID: "users",
+    PartitionKeyDefinition: azcosmos.PartitionKeyDefinition{Paths: []string{"/city"}},
+}, nil)
+
+// CRUD documents
+container, _ := client.NewContainer("mydb", "users")
+pk := azcosmos.NewPartitionKeyString("NYC")
+container.CreateItem(ctx, pk, []byte(`{"id":"1","name":"Alice","city":"NYC"}`), nil)
+resp, _ := container.ReadItem(ctx, pk, "1", nil)
+```
+
+### Azure Cosmos DB -- Python
+
+```python
+from azure.cosmos import CosmosClient
+
+client = CosmosClient("http://localhost:4567", credential="any-key")
+db = client.create_database_if_not_exists("mydb")
+container = db.create_container_if_not_exists("users", partition_key=PartitionKey("/city"))
+
+container.create_item({"id": "1", "name": "Alice", "city": "NYC"})
+item = container.read_item("1", partition_key="NYC")
+```
+
+### GCP Firestore -- Go
+
+```go
+import (
+    firestore "cloud.google.com/go/firestore"
+    "google.golang.org/api/option"
+)
+
+// Set FIRESTORE_EMULATOR_HOST=localhost:4567
+client, _ := firestore.NewClient(ctx, "local-project",
+    option.WithEndpoint("http://localhost:4567"),
+    option.WithoutAuthentication(),
+)
+
+// Create document
+client.Collection("users").Doc("user1").Set(ctx, map[string]interface{}{
+    "name": "Alice", "age": 30,
+})
+
+// Read it back
+doc, _ := client.Collection("users").Doc("user1").Get(ctx)
+fmt.Println(doc.Data()) // map[name:Alice age:30]
+```
+
+### GCP Firestore -- Python
+
+```python
+from google.cloud import firestore
+import os
+
+os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:4567"
+db = firestore.Client(project="local-project")
+
+db.collection("users").document("user1").set({"name": "Alice", "age": 30})
+doc = db.collection("users").document("user1").get()
+print(doc.to_dict())  # {'name': 'Alice', 'age': 30}
+```
+
 ### Reset all state between tests
 
 ```bash
 curl -X POST http://localhost:4567/_altocirrus/reset
 # {"status":"reset"}
+```
+
+## Admin Dashboard
+
+Browse all emulator state in your browser:
+
+```
+http://localhost:4567/_altocirrus/admin
+```
+
+JSON API underneath:
+
+```bash
+# List all namespaces + resource counts
+curl http://localhost:4567/_altocirrus/api/namespaces
+
+# List keys in a namespace
+curl http://localhost:4567/_altocirrus/api/namespaces/azure:keyvault/keys
+
+# Get a specific value
+curl http://localhost:4567/_altocirrus/api/namespaces/azure:keyvault/keys/my-secret
 ```
 
 ## Configuration Reference
@@ -198,6 +303,8 @@ All configuration is via environment variables. Every value has a sensible defau
 | `ALTOCIRRUS_GCP_PROJECT_ID` | `local-project` | GCP project ID used in resource names |
 | `ALTOCIRRUS_GCP_PROJECT_NUMBER` | `123456789` | GCP numeric project ID (metadata endpoint) |
 | `ALTOCIRRUS_GCP_REGION` | `us-central1` | GCP region for resource metadata |
+| `ALTOCIRRUS_STORAGE` | _(empty)_ | Set to `sqlite` for persistent storage |
+| `ALTOCIRRUS_DB_PATH` | `altocirrus.db` | SQLite database path (when storage=sqlite) |
 
 ## Architecture
 
@@ -212,19 +319,25 @@ internal/
   config/
     config.go            # env-var-driven configuration
   server/
-    server.go            # HTTP mux, health, reset, logging middleware
+    server.go            # HTTP mux, health, reset
     errors.go            # Azure/GCP error envelopes, JSON helpers
+    middleware.go        # CORS + structured logging middleware
+    admin.go + admin.html # Admin dashboard (embedded HTML)
   storage/
     memory.go            # thread-safe in-memory Store interface + implementation
+    sqlite.go            # SQLite-backed persistent Store (optional)
   azure/
     auth/auth.go         # Entra ID: OAuth2 tokens (RS256 JWT), OIDC, JWKS
     keyvault/keyvault.go # Key Vault secrets: CRUD with versioning, soft-delete
     arm/arm.go           # ARM: subscriptions, resource group CRUD
+    blobstorage/         # Blob Storage: containers + blobs (XML REST API)
+    cosmosdb/            # Cosmos DB: databases, containers, documents, SQL queries
   gcp/
     auth/auth.go         # OAuth2 token endpoint, compute metadata
     secretmanager/       # Secret Manager: secrets + versions CRUD
-      secretmanager.go
     storage/gcs.go       # Cloud Storage: buckets, objects, resumable uploads
+    pubsub/              # Pub/Sub: topics, subscriptions, publish/pull/ack
+    firestore/           # Firestore: documents, collections, queries, batch get
 
 scripts/
   configure.sh           # prints shell exports for az/gcloud CLI overrides

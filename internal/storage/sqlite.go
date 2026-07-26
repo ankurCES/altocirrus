@@ -96,6 +96,23 @@ func (s *SQLiteStore) Clear(namespace string) {
 	_, _ = s.db.Exec("DELETE FROM kv WHERE namespace = ?", namespace)
 }
 
+func (s *SQLiteStore) Namespaces() []string {
+	rows, err := s.db.Query("SELECT DISTINCT namespace FROM kv")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var ns []string
+	for rows.Next() {
+		var n string
+		if rows.Scan(&n) == nil {
+			ns = append(ns, n)
+		}
+	}
+	return ns
+}
+
 // Close closes the underlying database connection.
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()

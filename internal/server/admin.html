@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AltoCirrus Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 24px; }
+  h1 { font-size: 1.5rem; margin-bottom: 8px; color: #38bdf8; }
+  .sub { color: #64748b; font-size: 0.85rem; margin-bottom: 24px; }
+  .toolbar { margin-bottom: 16px; }
+  .toolbar button { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+  .toolbar button:hover { background: #334155; color: #e2e8f0; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 8px 12px; border-bottom: 2px solid #334155; color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; }
+  td { padding: 8px 12px; border-bottom: 1px solid #1e293b; font-size: 0.9rem; }
+  tr:hover td { background: #1e293b; }
+  .ns-name { color: #38bdf8; cursor: pointer; text-decoration: underline; }
+  .count { color: #94a3b8; font-variant-numeric: tabular-nums; }
+  #detail { margin-top: 24px; }
+  #detail h2 { font-size: 1.1rem; color: #f8fafc; margin-bottom: 12px; }
+  .key-item { padding: 6px 12px; background: #1e293b; margin-bottom: 4px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 0.85rem; }
+  .key-item:hover { background: #334155; }
+  pre { background: #1e293b; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; max-height: 400px; overflow-y: auto; margin-top: 12px; }
+  .back { color: #38bdf8; cursor: pointer; font-size: 0.85rem; margin-bottom: 12px; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>AltoCirrus Admin</h1>
+<p class="sub">Local Azure + GCP cloud emulator — state inspector</p>
+<div class="toolbar"><button onclick="refresh()">Refresh</button></div>
+<div id="app"></div>
+<div id="detail"></div>
+<script>
+const app = document.getElementById('app');
+const detail = document.getElementById('detail');
+
+async function refresh() {
+  detail.innerHTML = '';
+  const res = await fetch('/_altocirrus/api/namespaces');
+  const data = await res.json();
+  if (!data.length) { app.innerHTML = '<p style="color:#64748b">No data. Create some resources first.</p>'; return; }
+  let html = '<table><tr><th>Namespace</th><th>Keys</th></tr>';
+  for (const ns of data) {
+    html += `<tr><td class="ns-name" onclick="showNS('${ns.namespace}')">${ns.namespace}</td><td class="count">${ns.count}</td></tr>`;
+  }
+  html += '</table>';
+  app.innerHTML = html;
+}
+
+async function showNS(ns) {
+  const res = await fetch(`/_altocirrus/api/namespaces/${ns}/keys`);
+  const keys = await res.json();
+  let html = `<span class="back" onclick="detail.innerHTML=''">&larr; close</span><h2>${ns}</h2>`;
+  for (const k of keys) {
+    html += `<div class="key-item" onclick="showKey('${ns}','${k}')">${k}</div>`;
+  }
+  detail.innerHTML = html;
+}
+
+async function showKey(ns, key) {
+  const res = await fetch(`/_altocirrus/api/namespaces/${ns}/keys/${key}`);
+  const text = await res.text();
+  let formatted;
+  try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch { formatted = text; }
+  detail.innerHTML = `<span class="back" onclick="showNS('${ns}')">&larr; back to ${ns}</span><h2>${key}</h2><pre>${escapeHtml(formatted)}</pre>`;
+}
+
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+refresh();
+</script>
+</body>
+</html>
