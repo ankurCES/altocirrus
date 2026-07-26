@@ -1,0 +1,9 @@
+services:
+  altocirrus:
+    build: .
+    ports:
+      - "4567:4567"
+    environment:
+      ALTOCIRRUS_PORT: "4567"
+      ALTOCIRRUS_AZURE_SUBSCRIPTION_ID: "00000000-0000-0000-0000-000000000000"
+      ALTOCIRRUS_GCP_PROJECT_ID: "local-project"
