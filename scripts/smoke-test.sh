@@ -246,6 +246,31 @@ assert_status DELETE "$BASE/${ACCT}/smoke-container/test.txt" 202
 assert_status DELETE "$BASE/${ACCT}/smoke-container?restype=container" 202
 
 # ===========================================================================
+# Azure Queue Storage
+# ===========================================================================
+
+echo ""
+echo "--- Azure Queue Storage ---"
+QACCT="devstoreaccount1queue"
+
+# Create queue
+assert_status PUT "$BASE/${QACCT}/testqueue" 201
+
+# Send message (Azure Queue XML body)
+assert_status POST "$BASE/${QACCT}/testqueue/messages" 201 \
+    -H "Content-Type: application/xml" \
+    -d '<QueueMessage><MessageText>c21va2U=</MessageText></QueueMessage>'
+
+# Receive messages
+assert_status GET "$BASE/${QACCT}/testqueue/messages" 200
+
+# Peek messages
+assert_status GET "$BASE/${QACCT}/testqueue/messages?peekonly=true" 200
+
+# Delete queue
+assert_status DELETE "$BASE/${QACCT}/testqueue" 204
+
+# ===========================================================================
 # GCP Auth -- token endpoint
 # ===========================================================================
 

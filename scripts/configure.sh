@@ -26,6 +26,8 @@ echo "# --- Azure CLI ---"
 echo "export AZURE_AUTHORITY_HOST=${BASE}"
 echo "export AZURE_KEYVAULT_URL=${BASE}"
 echo "export ARM_ENDPOINT=${BASE}"
+echo "# Azure Queue Storage: pass service URL directly to QueueServiceClient"
+echo "export AZURE_STORAGE_QUEUE_ENDPOINT=${BASE}/devstoreaccount1queue"
 
 echo ""
 echo "# --- GCP CLI ---"

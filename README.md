@@ -42,7 +42,7 @@ curl http://localhost:4567/_altocirrus/health
   "status": "ok",
   "version": "0.1.0",
   "services": {
-    "azure": ["auth", "keyvault", "arm", "blobstorage", "cosmosdb"],
+    "azure": ["auth", "keyvault", "arm", "blobstorage", "queuestorage", "cosmosdb"],
     "gcp": ["auth", "secretmanager", "storage", "pubsub", "firestore"]
   }
 }
@@ -56,6 +56,7 @@ curl http://localhost:4567/_altocirrus/health
 | Azure | **Key Vault Secrets** | Create, read, list, delete (soft-delete) | `PUT/GET/DELETE /secrets/{name}` |
 | Azure | **ARM Resource Groups** | Create, read, list, delete | `/subscriptions/{sub}/resourceGroups/{rg}` |
 | Azure | **Blob Storage** | Container CRUD, blob upload/download/delete/HEAD (XML REST API) | `/{account}/{container}/{blob}` |
+| Azure | **Queue Storage** | Queue CRUD, send/receive/peek/delete/update/clear messages | `/{account}/{queue}/messages` |
 | Azure | **Cosmos DB** | Database/container/document CRUD, SQL queries, partition keys | `/dbs/{db}/colls/{coll}/docs/{doc}` |
 | GCP | **OAuth (Auth)** | Token issuance, metadata server | `POST /token`, `POST /oauth2/v4/token` |
 | GCP | **Secret Manager** | Create secret, add version, access, list, delete | `/v1/projects/{project}/secrets/...` |
@@ -261,6 +262,45 @@ doc = db.collection("users").document("user1").get()
 print(doc.to_dict())  # {'name': 'Alice', 'age': 30}
 ```
 
+### Azure Queue Storage -- Go
+
+```go
+import "github.com/Azure/azure-sdk-for-go/sdk/storage/azqueue"
+
+// devstoreaccount1queue avoids route conflicts with blob storage (devstoreaccount1)
+client, _ := azqueue.NewServiceClientWithNoCredential(
+    "http://localhost:4567/devstoreaccount1queue", nil)
+
+// Create queue
+queueClient := client.NewQueueClient("my-queue")
+queueClient.Create(ctx, nil)
+
+// Send message
+queueClient.EnqueueMessage(ctx, "hello from altocirrus", nil)
+
+// Receive messages
+resp, _ := queueClient.DequeueMessages(ctx, nil)
+for _, msg := range resp.Messages {
+    fmt.Println(*msg.MessageText)
+}
+```
+
+### Azure Queue Storage -- Python
+
+```python
+from azure.storage.queue import QueueServiceClient
+
+# devstoreaccount1queue avoids route conflicts with blob storage (devstoreaccount1)
+client = QueueServiceClient(account_url="http://localhost:4567/devstoreaccount1queue")
+queue = client.get_queue_client("my-queue")
+queue.create_queue()
+
+queue.send_message("hello from altocirrus")
+messages = queue.receive_messages()
+for msg in messages:
+    print(msg.content)
+```
+
 ### Reset all state between tests
 
 ```bash
@@ -330,6 +370,7 @@ internal/
     keyvault/keyvault.go # Key Vault secrets: CRUD with versioning, soft-delete
     arm/arm.go           # ARM: subscriptions, resource group CRUD
     blobstorage/         # Blob Storage: containers + blobs (XML REST API)
+    queuestorage/        # Queue Storage: queues, send/receive/peek/delete/clear messages
     cosmosdb/            # Cosmos DB: databases, containers, documents, SQL queries
   gcp/
     auth/auth.go         # OAuth2 token endpoint, compute metadata
