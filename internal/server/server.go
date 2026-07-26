@@ -15,9 +15,12 @@ var knownNamespaces = []string{
 	"azure:keyvault",
 	"azure:arm",
 	"azure:auth",
+	"azure:blob:containers",
 	"gcp:secretmanager",
 	"gcp:storage",
 	"gcp:auth",
+	"gcp:pubsub:topics",
+	"gcp:pubsub:subscriptions",
 }
 
 // New creates a configured HTTP mux with health and reset endpoints.
@@ -43,8 +46,8 @@ func handleHealth() http.HandlerFunc {
 		Status:  "ok",
 		Version: "0.1.0",
 		Services: map[string][]string{
-			"azure": {"auth", "keyvault", "arm"},
-			"gcp":   {"auth", "secretmanager", "storage"},
+			"azure": {"auth", "keyvault", "arm", "blobstorage"},
+			"gcp":   {"auth", "secretmanager", "storage", "pubsub"},
 		},
 	}
 

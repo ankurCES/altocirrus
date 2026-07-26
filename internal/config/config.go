@@ -7,9 +7,11 @@ import (
 
 // Config holds all configuration for the AltoCirrus emulator.
 type Config struct {
-	Port  int
-	Azure AzureConfig
-	GCP   GCPConfig
+	Port    int
+	Storage string
+	DBPath  string
+	Azure   AzureConfig
+	GCP     GCPConfig
 }
 
 // AzureConfig holds Azure-specific emulator configuration.
@@ -30,7 +32,9 @@ type GCPConfig struct {
 // for any values not set.
 func Load() *Config {
 	return &Config{
-		Port: envInt("ALTOCIRRUS_PORT", 4567),
+		Port:    envInt("ALTOCIRRUS_PORT", 4567),
+		Storage: envStr("ALTOCIRRUS_STORAGE", "memory"),
+		DBPath:  envStr("ALTOCIRRUS_DB_PATH", "./altocirrus.db"),
 		Azure: AzureConfig{
 			SubscriptionID: envStr("ALTOCIRRUS_AZURE_SUBSCRIPTION_ID", "00000000-0000-0000-0000-000000000000"),
 			TenantID:       envStr("ALTOCIRRUS_AZURE_TENANT_ID", "00000000-0000-0000-0000-000000000001"),

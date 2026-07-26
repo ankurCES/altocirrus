@@ -52,7 +52,10 @@ func RegisterRoutes(mux *http.ServeMux, store storage.Store, cfg *config.Config)
 	h := &handler{store: store, cfg: cfg}
 
 	mux.HandleFunc("/subscriptions", h.handleSubscriptions)
-	mux.HandleFunc("/subscriptions/", h.handleSubscriptionsSubpath)
+	// Register per-method to avoid a conflict with POST /{tenantId}/oauth2/v2.0/token.
+	mux.HandleFunc("GET /subscriptions/", h.handleSubscriptionsSubpath)
+	mux.HandleFunc("PUT /subscriptions/", h.handleSubscriptionsSubpath)
+	mux.HandleFunc("DELETE /subscriptions/", h.handleSubscriptionsSubpath)
 }
 
 type handler struct {
