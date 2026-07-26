@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 160" width="520" height="160">
+  <defs>
+    <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0078D4"/>
+      <stop offset="100%" stop-color="#4285F4"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0078D4"/>
+      <stop offset="100%" stop-color="#DB4437"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Cloud -->
+  <path d="M58 112 C42 112 30 100 30 86 C30 70 44 58 60 58 C62 44 74 34 90 34
+           C102 34 112 40 118 50 C124 42 134 36 146 36 C168 36 186 54 186 74
+           C186 76 186 78 185 80 C194 84 200 94 200 106 C200 118 190 128 176 128
+           L58 128 C42 128 30 120 30 112 Z"
+        fill="none" stroke="url(#cg)" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- </> inside cloud -->
+  <g stroke="url(#bg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polyline points="96,70 82,84 96,98"/>
+    <polyline points="134,70 148,84 134,98"/>
+    <line x1="122" y1="64" x2="108" y2="104"/>
+  </g>
+
+  <!-- Alto — gradient blue -->
+  <text x="222" y="88" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="48" font-weight="800" fill="url(#cg)" letter-spacing="-2">Alto</text>
+
+  <!-- Cirrus — contrasting gray that works on light + dark -->
+  <text x="340" y="88" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="48" font-weight="300" fill="#6b7280" letter-spacing="-2">Cirrus</text>
+
+  <!-- Tagline -->
+  <text x="224" y="112" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="13.5" fill="#9ca3af" letter-spacing="3" font-weight="500">LOCAL CLOUD EMULATOR</text>
+</svg>

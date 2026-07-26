@@ -1,6 +1,5 @@
 <p align="center">
-  <strong>AltoCirrus</strong><br>
-  Local Azure + GCP cloud emulator for development, testing, and CI
+  <img src="logo.svg" alt="AltoCirrus" width="480">
 </p>
 
 <p align="center">
