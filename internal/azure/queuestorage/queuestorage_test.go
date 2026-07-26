@@ -46,7 +46,7 @@ func doBody(t *testing.T, srv *httptest.Server, method, path, body string) *http
 
 func createQueue(t *testing.T, srv *httptest.Server, name string) {
 	t.Helper()
-	resp := do(t, srv, http.MethodPut, "/devstoreaccount1/"+name)
+	resp := do(t, srv, http.MethodPut, "/devstoreaccount1queue/"+name)
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("createQueue: want 201/204, got %d", resp.StatusCode)
 	}
@@ -55,7 +55,7 @@ func createQueue(t *testing.T, srv *httptest.Server, name string) {
 func sendMsg(t *testing.T, srv *httptest.Server, queueName, text string) queueMessagesList {
 	t.Helper()
 	body := fmt.Sprintf(`<QueueMessage><MessageText>%s</MessageText></QueueMessage>`, text)
-	resp := doBody(t, srv, http.MethodPost, "/devstoreaccount1/"+queueName+"/messages", body)
+	resp := doBody(t, srv, http.MethodPost, "/devstoreaccount1queue/"+queueName+"/messages", body)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("sendMsg: want 201, got %d", resp.StatusCode)
 	}
@@ -69,7 +69,7 @@ func sendMsg(t *testing.T, srv *httptest.Server, queueName, text string) queueMe
 
 func receiveMsg(t *testing.T, srv *httptest.Server, queueName, query string) queueMessagesList {
 	t.Helper()
-	path := "/devstoreaccount1/" + queueName + "/messages"
+	path := "/devstoreaccount1queue/" + queueName + "/messages"
 	if query != "" {
 		path += "?" + query
 	}
@@ -89,7 +89,7 @@ func TestCreateQueue(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	resp := do(t, srv, http.MethodPut, "/devstoreaccount1/myqueue")
+	resp := do(t, srv, http.MethodPut, "/devstoreaccount1queue/myqueue")
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("want 201, got %d", resp.StatusCode)
 	}
@@ -99,8 +99,8 @@ func TestCreateQueueIdempotent(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	do(t, srv, http.MethodPut, "/devstoreaccount1/myqueue")
-	resp := do(t, srv, http.MethodPut, "/devstoreaccount1/myqueue")
+	do(t, srv, http.MethodPut, "/devstoreaccount1queue/myqueue")
+	resp := do(t, srv, http.MethodPut, "/devstoreaccount1queue/myqueue")
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("want 204 on re-create, got %d", resp.StatusCode)
 	}
@@ -110,8 +110,8 @@ func TestGetQueueProps(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	do(t, srv, http.MethodPut, "/devstoreaccount1/myqueue")
-	resp := do(t, srv, http.MethodGet, "/devstoreaccount1/myqueue?comp=metadata")
+	do(t, srv, http.MethodPut, "/devstoreaccount1queue/myqueue")
+	resp := do(t, srv, http.MethodGet, "/devstoreaccount1queue/myqueue?comp=metadata")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
 	}
@@ -121,7 +121,7 @@ func TestGetQueuePropsNotFound(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	resp := do(t, srv, http.MethodGet, "/devstoreaccount1/noqueue?comp=metadata")
+	resp := do(t, srv, http.MethodGet, "/devstoreaccount1queue/noqueue?comp=metadata")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("want 404, got %d", resp.StatusCode)
 	}
@@ -139,8 +139,8 @@ func TestGetQueuePropsMissingComp(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	do(t, srv, http.MethodPut, "/devstoreaccount1/myqueue")
-	resp := do(t, srv, http.MethodGet, "/devstoreaccount1/myqueue")
+	do(t, srv, http.MethodPut, "/devstoreaccount1queue/myqueue")
+	resp := do(t, srv, http.MethodGet, "/devstoreaccount1queue/myqueue")
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("want 400 without comp=metadata, got %d", resp.StatusCode)
 	}
@@ -150,8 +150,8 @@ func TestDeleteQueue(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	do(t, srv, http.MethodPut, "/devstoreaccount1/myqueue")
-	resp := do(t, srv, http.MethodDelete, "/devstoreaccount1/myqueue")
+	do(t, srv, http.MethodPut, "/devstoreaccount1queue/myqueue")
+	resp := do(t, srv, http.MethodDelete, "/devstoreaccount1queue/myqueue")
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("want 204, got %d", resp.StatusCode)
 	}
@@ -161,7 +161,7 @@ func TestDeleteQueueNotFound(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	resp := do(t, srv, http.MethodDelete, "/devstoreaccount1/noqueue")
+	resp := do(t, srv, http.MethodDelete, "/devstoreaccount1queue/noqueue")
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("want 404, got %d", resp.StatusCode)
 	}
@@ -179,11 +179,11 @@ func TestDeleteQueueClearsMessages(t *testing.T) {
 	// Pre-seed a message so we can confirm the namespace is cleared on delete.
 	store.Put(messagesNamespace("myqueue"), "msg1", []byte(`{}`))
 
-	req, _ := http.NewRequest(http.MethodPut, srv.URL+"/devstoreaccount1/myqueue", nil)
+	req, _ := http.NewRequest(http.MethodPut, srv.URL+"/devstoreaccount1queue/myqueue", nil)
 	req.Header.Set("x-ms-version", "2020-10-02")
 	http.DefaultClient.Do(req)
 
-	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/devstoreaccount1/myqueue", nil)
+	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/devstoreaccount1queue/myqueue", nil)
 	req.Header.Set("x-ms-version", "2020-10-02")
 	http.DefaultClient.Do(req)
 
@@ -197,10 +197,10 @@ func TestListQueues(t *testing.T) {
 	defer srv.Close()
 
 	for _, name := range []string{"alpha", "beta", "gamma"} {
-		do(t, srv, http.MethodPut, "/devstoreaccount1/"+name)
+		do(t, srv, http.MethodPut, "/devstoreaccount1queue/"+name)
 	}
 
-	resp := do(t, srv, http.MethodGet, "/devstoreaccount1?comp=list")
+	resp := do(t, srv, http.MethodGet, "/devstoreaccount1queue?comp=list")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
 	}
@@ -222,7 +222,7 @@ func TestListQueuesEmpty(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	resp := do(t, srv, http.MethodGet, "/devstoreaccount1?comp=list")
+	resp := do(t, srv, http.MethodGet, "/devstoreaccount1queue?comp=list")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
 	}
@@ -236,7 +236,7 @@ func TestListQueuesMissingComp(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	resp := do(t, srv, http.MethodGet, "/devstoreaccount1")
+	resp := do(t, srv, http.MethodGet, "/devstoreaccount1queue")
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("want 400 without comp=list, got %d", resp.StatusCode)
 	}
@@ -246,7 +246,7 @@ func TestXMLErrorFormat(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()
 
-	resp := do(t, srv, http.MethodGet, "/devstoreaccount1/missing?comp=metadata")
+	resp := do(t, srv, http.MethodGet, "/devstoreaccount1queue/missing?comp=metadata")
 	body, _ := io.ReadAll(resp.Body)
 
 	if ct := resp.Header.Get("Content-Type"); ct != "application/xml" {
@@ -334,7 +334,7 @@ func TestDeleteWithValidPopReceipt(t *testing.T) {
 	m := got.Messages[0]
 
 	resp := do(t, srv, http.MethodDelete,
-		"/devstoreaccount1/q/messages/"+m.MessageId+"?popreceipt="+m.PopReceipt)
+		"/devstoreaccount1queue/q/messages/"+m.MessageId+"?popreceipt="+m.PopReceipt)
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete: want 204, got %d", resp.StatusCode)
 	}
@@ -356,7 +356,7 @@ func TestDeleteWithInvalidPopReceipt(t *testing.T) {
 	m := got.Messages[0]
 
 	resp := do(t, srv, http.MethodDelete,
-		"/devstoreaccount1/q/messages/"+m.MessageId+"?popreceipt=wrong-receipt")
+		"/devstoreaccount1queue/q/messages/"+m.MessageId+"?popreceipt=wrong-receipt")
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("delete with bad receipt: want 400, got %d", resp.StatusCode)
 	}
@@ -374,7 +374,7 @@ func TestUpdateChangesContent(t *testing.T) {
 	// Update: new text, vt=0 makes it immediately visible.
 	updateBody := `<QueueMessage><MessageText>bmV3</MessageText></QueueMessage>` // "new"
 	resp := doBody(t, srv, http.MethodPut,
-		"/devstoreaccount1/q/messages/"+m.MessageId+"?popreceipt="+m.PopReceipt+"&visibilitytimeout=0",
+		"/devstoreaccount1queue/q/messages/"+m.MessageId+"?popreceipt="+m.PopReceipt+"&visibilitytimeout=0",
 		updateBody)
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("update: want 204, got %d", resp.StatusCode)
@@ -403,7 +403,7 @@ func TestClearEmpiesQueue(t *testing.T) {
 		sendMsg(t, srv, "q", fmt.Sprintf("bXNn%d", i))
 	}
 
-	resp := do(t, srv, http.MethodDelete, "/devstoreaccount1/q/messages")
+	resp := do(t, srv, http.MethodDelete, "/devstoreaccount1queue/q/messages")
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("clear: want 204, got %d", resp.StatusCode)
 	}

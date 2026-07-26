@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	accountName    = "devstoreaccount1"
+	// ponytail: separate account name avoids ServeMux panic when blob also uses devstoreaccount1
+	accountName    = "devstoreaccount1queue"
 	queueNamespace = "azure:queuestorage:queues"
 )
 

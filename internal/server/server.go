@@ -16,6 +16,7 @@ var knownNamespaces = []string{
 	"azure:arm",
 	"azure:auth",
 	"azure:blob:containers",
+	"azure:queuestorage:queues",
 	"azure:cosmosdb:dbs",
 	"azure:cosmosdb:colls",
 	"azure:cosmosdb:docs",
@@ -50,7 +51,7 @@ func handleHealth() http.HandlerFunc {
 		Status:  "ok",
 		Version: "0.1.0",
 		Services: map[string][]string{
-			"azure": {"auth", "keyvault", "arm", "blobstorage", "cosmosdb"},
+			"azure": {"auth", "keyvault", "arm", "blobstorage", "queuestorage", "cosmosdb"},
 			"gcp":   {"auth", "secretmanager", "storage", "pubsub", "firestore"},
 		},
 	}

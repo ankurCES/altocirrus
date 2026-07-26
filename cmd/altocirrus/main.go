@@ -13,6 +13,7 @@ import (
 	"github.com/altocirrus/altocirrus/internal/azure/arm"
 	azureauth "github.com/altocirrus/altocirrus/internal/azure/auth"
 	"github.com/altocirrus/altocirrus/internal/azure/blobstorage"
+	"github.com/altocirrus/altocirrus/internal/azure/queuestorage"
 	"github.com/altocirrus/altocirrus/internal/azure/cosmosdb"
 	"github.com/altocirrus/altocirrus/internal/azure/keyvault"
 	"github.com/altocirrus/altocirrus/internal/config"
@@ -50,6 +51,7 @@ func main() {
 	keyvault.RegisterRoutes(mux, store, cfg)
 	arm.RegisterRoutes(mux, store, cfg)
 	blobstorage.RegisterRoutes(mux, store, cfg)
+	queuestorage.RegisterRoutes(mux, store, cfg)
 	gcpauth.RegisterRoutes(mux, cfg)
 	secretmanager.RegisterRoutes(mux, store, cfg)
 	gcpstorage.RegisterRoutes(mux, store, cfg)
