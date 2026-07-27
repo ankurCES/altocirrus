@@ -12,6 +12,15 @@ import (
 	"github.com/altocirrus/altocirrus/internal/storage"
 )
 
+type authTransport struct{ base http.RoundTripper }
+
+func (a authTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.Header.Set("Authorization", "Bearer fake-token")
+	return a.base.RoundTrip(r)
+}
+
+var authClient = &http.Client{Transport: authTransport{base: http.DefaultTransport}}
+
 // newTestServer creates an httptest.Server with all Key Vault routes registered.
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -73,7 +82,7 @@ func putSecret(t *testing.T, ts *httptest.Server, name, value string) *http.Resp
 	body, _ := json.Marshal(map[string]string{"value": value})
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/secrets/"+name, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := authClient.Do(req)
 	if err != nil {
 		t.Fatalf("PUT /secrets/%s: %v", name, err)
 	}
@@ -112,7 +121,7 @@ func TestSecretLifecycle(t *testing.T) {
 	}
 
 	// 2. Read the secret back.
-	getResp, err := http.Get(ts.URL + "/secrets/my-secret")
+	getResp, err := authClient.Get(ts.URL + "/secrets/my-secret")
 	if err != nil {
 		t.Fatalf("GET /secrets/my-secret: %v", err)
 	}
@@ -151,7 +160,7 @@ func TestSecretLifecycle(t *testing.T) {
 	}
 
 	// 4. Read back updated value (GET returns latest version).
-	getResp2, err := http.Get(ts.URL + "/secrets/my-secret")
+	getResp2, err := authClient.Get(ts.URL + "/secrets/my-secret")
 	if err != nil {
 		t.Fatalf("GET /secrets/my-secret (updated): %v", err)
 	}
@@ -166,7 +175,7 @@ func TestSecretLifecycle(t *testing.T) {
 	}
 
 	// 5. List secrets -- should contain our secret.
-	listResp, err := http.Get(ts.URL + "/secrets")
+	listResp, err := authClient.Get(ts.URL + "/secrets")
 	if err != nil {
 		t.Fatalf("GET /secrets: %v", err)
 	}
@@ -190,7 +199,7 @@ func TestSecretLifecycle(t *testing.T) {
 
 	// 6. Delete the secret.
 	delReq, _ := http.NewRequest(http.MethodDelete, ts.URL+"/secrets/my-secret", nil)
-	delResp, err := http.DefaultClient.Do(delReq)
+	delResp, err := authClient.Do(delReq)
 	if err != nil {
 		t.Fatalf("DELETE /secrets/my-secret: %v", err)
 	}
@@ -221,7 +230,7 @@ func TestSecretLifecycle(t *testing.T) {
 	}
 
 	// 7. Verify the secret is gone -- GET should return 404.
-	getResp3, err := http.Get(ts.URL + "/secrets/my-secret")
+	getResp3, err := authClient.Get(ts.URL + "/secrets/my-secret")
 	if err != nil {
 		t.Fatalf("GET /secrets/my-secret (after delete): %v", err)
 	}
@@ -235,7 +244,7 @@ func TestSecretLifecycle(t *testing.T) {
 func TestGetNotFound(t *testing.T) {
 	ts := newTestServer(t)
 
-	resp, err := http.Get(ts.URL + "/secrets/nonexistent-secret")
+	resp, err := authClient.Get(ts.URL + "/secrets/nonexistent-secret")
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
@@ -261,7 +270,7 @@ func TestGetNotFound(t *testing.T) {
 func TestListEmpty(t *testing.T) {
 	ts := newTestServer(t)
 
-	resp, err := http.Get(ts.URL + "/secrets")
+	resp, err := authClient.Get(ts.URL + "/secrets")
 	if err != nil {
 		t.Fatalf("GET /secrets: %v", err)
 	}
@@ -292,7 +301,7 @@ func TestDeleteNotFound(t *testing.T) {
 	ts := newTestServer(t)
 
 	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/secrets/does-not-exist", nil)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := authClient.Do(req)
 	if err != nil {
 		t.Fatalf("DELETE: %v", err)
 	}
@@ -315,7 +324,7 @@ func TestKeyVaultResponseHeaders(t *testing.T) {
 	ts := newTestServer(t)
 
 	// Even a 404 should have Key Vault headers.
-	resp, err := http.Get(ts.URL + "/secrets/nope")
+	resp, err := authClient.Get(ts.URL + "/secrets/nope")
 	if err != nil {
 		t.Fatalf("GET: %v", err)
 	}
@@ -346,7 +355,7 @@ func TestSetSecretWithTags(t *testing.T) {
 	})
 	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/secrets/tagged-secret", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := authClient.Do(req)
 	if err != nil {
 		t.Fatalf("PUT: %v", err)
 	}
@@ -378,7 +387,7 @@ func TestMultipleSecretsListOrder(t *testing.T) {
 		resp.Body.Close()
 	}
 
-	listResp, err := http.Get(ts.URL + "/secrets")
+	listResp, err := authClient.Get(ts.URL + "/secrets")
 	if err != nil {
 		t.Fatalf("GET /secrets: %v", err)
 	}

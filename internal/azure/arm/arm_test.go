@@ -230,9 +230,8 @@ func TestResourceGroupCRUD(t *testing.T) {
 	}
 	defer delResp.Body.Close()
 
-	// ARM returns 202 Accepted for async deletes.
-	if delResp.StatusCode != http.StatusAccepted {
-		t.Fatalf("DELETE: expected 202, got %d", delResp.StatusCode)
+	if delResp.StatusCode != http.StatusOK {
+		t.Fatalf("DELETE: expected 200, got %d", delResp.StatusCode)
 	}
 
 	// 5. GET after delete should return 404.
