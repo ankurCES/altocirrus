@@ -290,7 +290,10 @@ func TestResumableUpload(t *testing.T) {
 
 	// 2. Complete the upload by PUTting data to the location.
 	content := "binary-content-here-0123456789"
-	putURL := ts.URL + location
+	putURL := location
+	if !strings.HasPrefix(location, "http") {
+		putURL = ts.URL + location
+	}
 	putReq, _ := http.NewRequest(http.MethodPut, putURL, strings.NewReader(content))
 	putResp, err := http.DefaultClient.Do(putReq)
 	if err != nil {

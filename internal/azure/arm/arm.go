@@ -229,7 +229,7 @@ func (h *handler) createOrUpdateResourceGroup(w http.ResponseWriter, r *http.Req
 func (h *handler) deleteResourceGroup(w http.ResponseWriter, _ *http.Request, rgName string) {
 	key := strings.ToLower(rgName)
 	h.store.Delete(namespaceResourceGroups, key)
-	w.WriteHeader(http.StatusAccepted)
+	w.WriteHeader(http.StatusOK)
 }
 
 // splitPath splits a URL path into non-empty segments.

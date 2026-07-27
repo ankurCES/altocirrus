@@ -364,7 +364,11 @@ func (h *handler) initiateResumable(w http.ResponseWriter, r *http.Request, buck
 	data, _ := json.Marshal(rec)
 	h.store.Put(nsUploads, uploadID, data)
 
-	location := fmt.Sprintf("/upload/storage/v1/b/%s/o?uploadType=resumable&upload_id=%s", bucket, uploadID)
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	location := fmt.Sprintf("%s://%s/upload/storage/v1/b/%s/o?uploadType=resumable&upload_id=%s", scheme, r.Host, bucket, uploadID)
 	w.Header().Set("Location", location)
 	w.WriteHeader(http.StatusOK)
 }

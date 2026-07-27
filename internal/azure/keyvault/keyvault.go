@@ -99,6 +99,8 @@ func RegisterRoutes(mux *http.ServeMux, store storage.Store, cfg *config.Config)
 	mux.HandleFunc("PUT /secrets/{secretName}", h.withHeaders(h.setSecret))
 	mux.HandleFunc("GET /secrets/{secretName}/{version}", h.withHeaders(h.getSecretVersion))
 	mux.HandleFunc("GET /secrets/{secretName}", h.withHeaders(h.getSecret))
+	// azsecrets SDK appends a trailing slash: GET /secrets/{name}/ → route to getSecret
+	mux.HandleFunc("GET /secrets/{secretName}/", h.withHeaders(h.getSecret))
 	mux.HandleFunc("GET /secrets", h.withHeaders(h.listSecrets))
 	mux.HandleFunc("DELETE /secrets/{secretName}", h.withHeaders(h.deleteSecret))
 }
@@ -112,12 +114,32 @@ type handler struct {
 	cfg   *config.Config
 }
 
-// withHeaders is a middleware that sets common Azure Key Vault response headers.
+// withHeaders sets common Key Vault response headers and issues a WWW-Authenticate
+// bearer challenge when no Authorization header is present. The azsecrets SDK
+// relies on this challenge to discover the token endpoint before retrying with auth.
 func (h *handler) withHeaders(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("x-ms-request-id", server.RequestID())
 		w.Header().Set("x-ms-keyvault-region", h.cfg.Azure.Region)
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+		if r.Header.Get("Authorization") == "" {
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			host := r.Host
+			if host == "" {
+				host = fmt.Sprintf("localhost:%d", h.cfg.Port)
+			}
+			authURL := fmt.Sprintf("%s://%s/%s", scheme, host, h.cfg.Azure.TenantID)
+			w.Header().Set("WWW-Authenticate", fmt.Sprintf(
+				`Bearer authorization="%s", resource="https://vault.azure.net/"`, authURL,
+			))
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
 		next(w, r)
 	}
 }

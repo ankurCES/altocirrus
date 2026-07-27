@@ -41,6 +41,9 @@ func RegisterRoutes(mux *http.ServeMux, cfg *config.Config) {
 
 	mux.HandleFunc("POST /{tenantId}/oauth2/v2.0/token", handleToken(cfg))
 	mux.HandleFunc("GET /.well-known/openid-configuration", handleOpenIDConfig(cfg))
+	// azidentity fetches per-tenant OIDC discovery at /{tenantId}/v2.0/.well-known/openid-configuration.
+	// Use the literal tenant ID to avoid ServeMux wildcard conflicts with other services.
+	mux.HandleFunc("GET /"+cfg.Azure.TenantID+"/v2.0/.well-known/openid-configuration", handleOpenIDConfig(cfg))
 	mux.HandleFunc("GET /common/discovery/v2.0/keys", handleJWKS())
 }
 
@@ -83,7 +86,7 @@ func handleToken(cfg *config.Config) http.HandlerFunc {
 
 		now := time.Now()
 		claims := jwt.MapClaims{
-			"iss": fmt.Sprintf("http://localhost:%d/%s/v2.0", cfg.Port, tenantID),
+			"iss": fmt.Sprintf("%s/%s/v2.0", baseURL(r, cfg), tenantID),
 			"sub": sub,
 			"aud": scope,
 			"exp": now.Add(1 * time.Hour).Unix(),
@@ -129,7 +132,7 @@ type openIDConfiguration struct {
 // handleOpenIDConfig returns a handler for GET /.well-known/openid-configuration.
 func handleOpenIDConfig(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		base := fmt.Sprintf("http://localhost:%d", cfg.Port)
+		base := baseURL(r, cfg)
 		tenantID := cfg.Azure.TenantID
 
 		doc := openIDConfiguration{
@@ -192,6 +195,18 @@ func handleJWKS() http.HandlerFunc {
 
 		server.WriteJSON(w, http.StatusOK, resp)
 	}
+}
+
+// baseURL returns the scheme+host authority from the incoming request,
+// falling back to http://localhost:{port} for direct-connect callers.
+func baseURL(r *http.Request, cfg *config.Config) string {
+	if r.TLS != nil {
+		return "https://" + r.Host
+	}
+	if r.Host != "" {
+		return "http://" + r.Host
+	}
+	return fmt.Sprintf("http://localhost:%d", cfg.Port)
 }
 
 // newUUID generates a random UUID v4 string using crypto/rand.
