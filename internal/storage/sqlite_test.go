@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"sort"
@@ -184,5 +185,66 @@ func TestSQLitePersistence(t *testing.T) {
 	val, ok := s2.Get("ns", "key")
 	if !ok || string(val) != "persisted" {
 		t.Fatalf("expected persisted/true after reopen, got %s/%v", val, ok)
+	}
+}
+
+func TestSQLiteNamespaces(t *testing.T) {
+	path := tempDBPath(t)
+	s := newTestStore(t, path)
+	defer s.Close()
+
+	if ns := s.Namespaces(); len(ns) != 0 {
+		t.Fatalf("expected empty namespaces, got %v", ns)
+	}
+
+	s.Put("alpha", "k", []byte("1"))
+	s.Put("beta", "k", []byte("2"))
+
+	ns := s.Namespaces()
+	sort.Strings(ns)
+	if len(ns) != 2 || ns[0] != "alpha" || ns[1] != "beta" {
+		t.Fatalf("unexpected namespaces: %v", ns)
+	}
+
+	s.Clear("alpha")
+	ns2 := s.Namespaces()
+	if len(ns2) != 1 || ns2[0] != "beta" {
+		t.Fatalf("expected only beta after clear, got %v", ns2)
+	}
+}
+
+func TestSQLiteLargeValue(t *testing.T) {
+	path := tempDBPath(t)
+	s := newTestStore(t, path)
+	defer s.Close()
+
+	large := bytes.Repeat([]byte("x"), 1<<20) // 1 MB
+	s.Put("ns", "big", large)
+	val, ok := s.Get("ns", "big")
+	if !ok || len(val) != 1<<20 {
+		t.Fatalf("expected 1MB value, got ok=%v len=%d", ok, len(val))
+	}
+	if !bytes.Equal(val, large) {
+		t.Fatal("large value round-trip mismatch")
+	}
+}
+
+func TestSQLiteSpecialCharKeysAndNamespaces(t *testing.T) {
+	path := tempDBPath(t)
+	s := newTestStore(t, path)
+	defer s.Close()
+
+	cases := []struct{ ns, key string }{
+		{"ns with spaces", "key/with/slashes"},
+		{"unicode-αβγ", "emoji-🔑"},
+		{"ns", "key_with_underscore"},
+		{"ns", "key%with%percent"},
+	}
+	for _, c := range cases {
+		s.Put(c.ns, c.key, []byte("val"))
+		val, ok := s.Get(c.ns, c.key)
+		if !ok || string(val) != "val" {
+			t.Errorf("ns=%q key=%q: expected val/true, got %s/%v", c.ns, c.key, val, ok)
+		}
 	}
 }
